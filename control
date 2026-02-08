@@ -1,10 +1,10 @@
-Package: me.jjolano.fmwk.rootbridge
+Package: com.hacker.fmwk.rootbridge
 Name: RootBridge Framework
 Depends: firmware (>= 8.0)
 Version: 1.0.1
 Architecture: iphoneos-arm
 Description: An iOS developer framework for rootless tweak development.
-Maintainer: jjolano
+Maintainer: hacker
 Author: jjolano
 Section: Development
 Tag: role::developer

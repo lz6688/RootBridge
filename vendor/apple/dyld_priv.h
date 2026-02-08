@@ -39,28 +39,33 @@ extern "C" {
 
 
 //
-// private interface between libSystem.dylib and dyld
+// libSystem.dylib 与 dyld 之间的私有接口
 //
+
+// 在 fork 之前（父进程中）调用，用于锁定 dyld 内部数据结构，防止在 fork 瞬间因并发操作导致状态不一致。
 extern void _dyld_atfork_prepare(void);
+// 在 fork 之后（父进程中）调用，用于释放 _dyld_atfork_prepare() 中加的锁，恢复 dyld 的正常操作。
 extern void _dyld_atfork_parent(void);
+// 在 fork 之后（子进程中）调用，用于重置子进程中的 dyld 状态（例如清理父进程继承的锁、重置线程局部存储等），确保子进程能安全使用动态库。
 extern void _dyld_fork_child(void);
 
 
-
+// 定义函数指针
 typedef void (*_dyld_objc_notify_mapped)(unsigned count, const char* const paths[], const struct mach_header* const mh[]);
 typedef void (*_dyld_objc_notify_init)(const char* path, const struct mach_header* mh);
 typedef void (*_dyld_objc_notify_unmapped)(const char* path, const struct mach_header* mh);
 
 
 //
-// Note: only for use by objc runtime
-// Register handlers to be called when objc images are mapped, unmapped, and initialized.
-// Dyld will call back the "mapped" function with an array of images that contain an objc-image-info section.
-// Those images that are dylibs will have the ref-counts automatically bumped, so objc will no longer need to
-// call dlopen() on them to keep them from being unloaded.  During the call to _dyld_objc_notify_register(),
-// dyld will call the "mapped" function with already loaded objc images.  During any later dlopen() call,
-// dyld will also call the "mapped" function.  Dyld will call the "init" function when dyld would be called
-// initializers in that image.  This is when objc calls any +load methods in that image.
+// Note: 仅用于 Objective-C 运行时使用
+// 注册处理程序,以便在对象编码图像被映射,解映射以及初始化时调用这些处理程序.
+// 那些为动态库（dylib）编译的图像会自动增加引用计数,
+// 因此 Objective-C 不再需要通过调用 dlopen() 来防止这些图像被卸载。
+// 在调用 _dyld_objc_notify_register() 时,
+// dyld 会将已加载的 Objective-C 图像传递给"映射"函数.
+// 在任何后续的 dlopen() 调用中，dyld 也会调用"映射"函数.
+// 当 dyld 要调用初始化器(即该图像中的初始化方法)时,dyld会调用"初始化"函数.
+// 这就是 Objective-C 在该图像中调用任何 +load 方法的时候的情况.
 //
 void _dyld_objc_notify_register(_dyld_objc_notify_mapped    mapped,
                                 _dyld_objc_notify_init      init,
@@ -68,8 +73,8 @@ void _dyld_objc_notify_register(_dyld_objc_notify_mapped    mapped,
 
 
 //
-// get slide for a given loaded mach_header  
-// Mac OS X 10.6 and later
+// 获取给定已加载的机器头信息的Slide 
+// Mac OS X 10.6 及更高版本
 //
 extern intptr_t _dyld_get_image_slide(const struct mach_header* mh);
 
@@ -86,37 +91,37 @@ struct dyld_unwind_sections
 
 
 //
-// Returns true iff some loaded mach-o image contains "addr".
-//	info->mh							mach header of image containing addr
-//  info->dwarf_section					pointer to start of __TEXT/__eh_frame section
-//  info->dwarf_section_length			length of __TEXT/__eh_frame section
-//  info->compact_unwind_section		pointer to start of __TEXT/__unwind_info section
-//  info->compact_unwind_section_length	length of __TEXT/__unwind_info section
+// 当且仅当某个已加载的 Mach-O 图像中包含"addr"时，该函数返回真。
+//	info->mh							包含地址的图像的机器头信息
+//  info->dwarf_section					指向 __TEXT/__eh_frame 部分起始位置的指针
+//  info->dwarf_section_length			__TEXT/__eh_frame 部分的长度
+//  info->compact_unwind_section		指向 __TEXT/__unwind_info 部分起始位置的指针
+//  info->compact_unwind_section_length	__TEXT/__unwind_info 部分的长度
 //
-// Exists in Mac OS X 10.6 and later 
+// 在 Mac OS X 10.6 及更高版本中存在 
 #if !__USING_SJLJ_EXCEPTIONS__
 extern bool _dyld_find_unwind_sections(void* addr, struct dyld_unwind_sections* info);
 #endif
 
 
 //
-// This is an optimized form of dladdr() that only returns the dli_fname field.
+// 这是一种经过优化的dladdr()函数形式,它仅返回 dli_fname 字段。
 //
-// Exists in Mac OS X 10.6 and later 
+// 在 Mac OS X 10.6 及更高版本中存在 
 extern const char* dyld_image_path_containing_address(const void* addr);
 
 
 //
-// This is an optimized form of dladdr() that only returns the dli_fbase field.
-// Return NULL, if address is not in any image tracked by dyld.
+// 这是一种经过优化的dladdr()函数形式,它仅返回 dli_fbase 字段.
+// 返回 NULL, 如果地址不在 dyld 跟踪的任何图像中。
 //
-// Exists in Mac OS X 10.11 and later
+// 在 Mac OS X 10.11 及更高版本中存在 
 extern const struct mach_header* dyld_image_header_containing_address(const void* addr);
 
 //
-// Return the mach header of the process
+// 返回进程的机器头信息
 //
-// Exists in Mac OS X 10.16 and later
+// 在 Mac OS X 10.16 及更高版本中存在 
 extern const struct mach_header* _dyld_get_prog_image_header(void);
 
 typedef uint32_t dyld_platform_t;
@@ -126,13 +131,13 @@ typedef struct {
     uint32_t        version;
 } dyld_build_version_t;
 
-// Returns the active platform of the process
+// 返回该进程的当前运行平台
 extern dyld_platform_t dyld_get_active_platform(void);
 
-// Base platforms are platforms that have version numbers (macOS, iOS, watchos, tvOS, bridgeOS)
-// All other platforms are mapped to a base platform for version checks
+// 基础平台是指那些带有版本号的平台(如macOS,iOS,watchOS,tvOS,bridgeOS)
+// 所有其他平台都与一个基础平台相连接,以便进行版本检查.
 
-// It is intended that most code in the OS will use the version set constants, which will correctly deal with secret and future
+// 其目的是让操作系统中的大部分代码都使用已设定的版本常量,这样就能正确处理机密信息以及未来的相关情况.
 // platforms. For example:
 
 //  if (dyld_program_sdk_at_least(dyld_fall_2018_os_versions)) {
@@ -141,10 +146,10 @@ extern dyld_platform_t dyld_get_active_platform(void);
 //      Old behaviour
 //  }
 
-// In cases where more precise control is required (such as APIs that were added to varions platforms in different years)
-// the os specific values may be used instead. Unlike the version set constants, the platform specific ones will only ever
-// return true if the running binary is the platform being testsed, allowing conditions to be built for specific platforms
-// and releases that came out at different times. For example:
+// 在需要更精确控制的情况下（例如在不同年份被添加到各种平台中的 API）
+// 可以使用操作系统特定的值来替代.与版本设置的常量不同平台特定的值永远不会是这样
+// 如果正在运行的二进制文件与测试所针对的平台一致,则返回"真",这样就可以为特定平台构建相应的条件了
+// 以及在不同时间发布的那些版本. For example:
 
 //  if (dyld_program_sdk_at_least(dyld_platform_version_iOS_12_0)
 //      || dyld_program_sdk_at_least(dyld_platform_version_watchOS_6_0)) {
@@ -155,18 +160,18 @@ extern dyld_platform_t dyld_get_active_platform(void);
 
 extern dyld_platform_t dyld_get_base_platform(dyld_platform_t platform);
 
-// SPI to ask if a platform is a simulation platform
+// SPI 会询问该平台是否为模拟平台
 extern bool dyld_is_simulator_platform(dyld_platform_t platform);
 
-// Takes a version and returns if the image was built againt that SDK or newer
-// In the case of multi_plaform mach-o's it tests against the active platform
+// 获取一个版本,并返回该图像是否是基于该 SDK 或更高版本构建的.
+// 对于多平台的 mach-o 文件,它会根据当前运行的平台进行测试.
 extern bool dyld_sdk_at_least(const struct mach_header* mh, dyld_build_version_t version);
 
-// Takes a version and returns if the image was built with that minos version or newer
-// In the case of multi_plaform mach-o's it tests against the active platform
+// 获取一个版本,并返回该图像是否是使用该minos版本或更高版本构建而成的.
+// 对于多平台的 mach-o 文件,它会根据当前运行的平台进行测试.
 extern bool dyld_minos_at_least(const struct mach_header* mh, dyld_build_version_t version);
 
-// Convenience versions of the previous two functions that run against the the main executable
+// 与主可执行文件一同运行的前两个功能的便捷版本
 extern bool dyld_program_sdk_at_least(dyld_build_version_t version);
 extern bool dyld_program_minos_at_least(dyld_build_version_t version);
 
@@ -292,27 +297,27 @@ extern const char* dyld_shared_cache_file_path(void);
 extern bool dyld_has_inserted_or_interposing_libraries(void);
 
 //
-// Return true if dyld contains a fix for a specific identifier. Intended for staging breaking SPI
+// 如果dyld中包含针对特定标识符的修复方案,则返回true.此功能旨在用于预设重大变更的接口规范(SPI)阶段
 // changes
 //
-// Exists in macOS 10.16, iOS 14, tvOS14, watchOS 7 and later
+// 适用于 macOS 10.16、iOS 14、tvOS 14、watchOS 7 及更高版本系统。
 
 extern bool _dyld_has_fix_for_radar(const char *rdar);
 
 
 //
-// <rdar://problem/13820686> for OpenGL to tell dyld it is ok to deallocate a memory based image when done.
+// <rdar://problem/13820686> 以便让OpenGL能告知dyld当图像处理完毕后可以释放其占用的内存.
 //
-// Exists in Mac OS X 10.9 and later
+// 在 Mac OS X 10.9 及更高版本中存在
 #define NSLINKMODULE_OPTION_CAN_UNLOAD                  0x20
 
 
 //
-// Update all bindings on specified image. 
-// Looks for uses of 'replacement' and changes it to 'replacee'.
-// NOTE: this is less safe than using static interposing via DYLD_INSERT_LIBRARIES
-// because the running program may have already copy the pointer values to other
-// locations that dyld does not know about.
+// 更新指定图像上的所有绑定项. 
+// 查找"替代"一词的使用情况，并将其修改为"被替代者"。
+// NOTE: 这比通过 DYLD_INSERT_LIBRARIES 使用静态插件的方式要不那么安全
+// 因为正在运行的程序可能已经将指针的值复制到了其他地方
+// dyld 未知的那些位置.
 //
 struct dyld_interpose_tuple {
 	const void* replacement;
@@ -336,82 +341,82 @@ typedef struct dyld_shared_cache_dylib_text_info dyld_shared_cache_dylib_text_in
 
 #ifdef __BLOCKS__
 //
-// Given the UUID of a dyld shared cache file, this function will attempt to locate the cache
-// file and if found iterate all images, returning info about each one.  Returns 0 on success.
+// 给定一个 dyld 共享缓存文件的 UUID，此函数将尝试查找该缓存文件。
+// 调用该函数并检查结果，然后遍历所有图像，返回每个图像的相关信息。成功时返回 0 。
 //
-// Exists in Mac OS X 10.11 and later
-//           iOS 9.0 and later
+// 适用于 Mac OS X 10.11 及更高版本
+//            iOS 9.0 及更高版本
 extern int dyld_shared_cache_iterate_text(const uuid_t cacheUuid, void (^callback)(const dyld_shared_cache_dylib_text_info* info));
 
 
 //
-// Given the UUID of a dyld shared cache file, and a NULL terminated array of extra directory paths to search,
-// this function will scan the standard and extra directories looking for a cache file that matches the UUID
-// and if found iterate all images, returning info about each one.  Returns 0 on success.
+// 给定一个dyld共享缓存文件的UUID,以及一个以空字符结尾的用于搜索的额外目录路径数组
+// 此功能将扫描标准目录和附加目录,以查找与 UUID 相匹配的缓存文件.
+// 如果找到匹配项,则会遍历所有图像,并返回每个图像的相关信息.成功时返回0 
 //
-// Exists in Mac OS X 10.12 and later
-//           iOS 10.0 and later
+// 在 Mac OS X 10.12 及更高版本中存在
+//            iOS 10.0 及更高版本
 extern int dyld_shared_cache_find_iterate_text(const uuid_t cacheUuid, const char* extraSearchDirs[], void (^callback)(const dyld_shared_cache_dylib_text_info* info));
 #endif /* __BLOCKS */
 
 
 //
-// Returns if the specified address range is in a dyld owned memory
-// that is mapped read-only and will never be unloaded.
+// 如果指定的地址范围位于dyld所管理的内存中,则返回真
+// 该内容被设置为只读模式,并且永远不会被卸载.
 //
-// Exists in Mac OS X 10.12 and later
-//           iOS 10.0 and later
+// 在 Mac OS X 10.12 及更高版本中存在
+//            iOS 10.0 及更高版本
 extern bool _dyld_is_memory_immutable(const void* addr, size_t length);
 
 
 //
-// Finds the UUID (from LC_UUID load command) of given image.
-// Returns false if LC_UUID is missing or mach_header is malformed.
+// 获取给定图像的 UUID（通过 LC_UUID 加载命令获取）。
+// 如果 LC_UUID 不存在或者 Mach 头格式不正确，则返回 false 。
 //
-// Exists in Mac OS X 10.12 and later
-// Exists in iOS 10.0 and later
+// 在 Mac OS X 10.12 及更高版本中存在
+// 在 iOS 10.0 及更高版本中存在
 extern bool _dyld_get_image_uuid(const struct mach_header* mh, uuid_t uuid);
 
 
 //
-// Gets the UUID of the dyld shared cache in the current process.
-// Returns false if there is no dyld shared cache in use by the processes.
+// 获取当前进程中 dyld 共享缓存的 UUID。
+// 如果当前进程中未使用 dyld 共享缓存，则返回 false 。
 //
-// Exists in Mac OS X 10.12 and later
-// Exists in iOS 10.0 and later
+// 在 Mac OS X 10.12 及更高版本中存在
+// 在 iOS 10.0 及更高版本中存在
 extern bool _dyld_get_shared_cache_uuid(uuid_t uuid);
 
 
 //
-// Returns the start address of the dyld cache in the process and sets length to the size of the cache.
-// Returns NULL if the process is not using a dyld shared cache
+// 返回进程中的 dyld 缓存的起始地址,并将长度设置为缓存的大小.
+// 如果该进程未使用 dyld 共享缓存,则返回 NULL .
 //
-// Exists in Mac OS X 10.13 and later
-// Exists in iOS 11.0 and later
+// 在 Mac OS X 10.13 及更高版本中存在
+// 在 iOS 11.0 及更高版本中存在
 extern const void* _dyld_get_shared_cache_range(size_t* length);
 
 
 //
-// Returns if the currently active dyld shared cache is optimized.
-// Note: macOS does not use optimized caches and will always return false.
+// 返回值表示当前活动的 dyld 共享缓存是否已优化。
+// Note: macOS 不使用优化过的缓存，因此总是会返回错误结果。
 //
-// Exists in Mac OS X 10.15 and later
-// Exists in iOS 13.0 and later
+// 在 Mac OS X 10.15 及更高版本中存在
+// 在 iOS 13.0 及更高版本中存在
 extern bool _dyld_shared_cache_optimized(void);
 
 
 //
-// Returns if the currently active dyld shared cache was built locally.
+// 如果当前活动的 dyld 共享缓存是本地构建的,则返回真.
 //
-// Exists in Mac OS X 10.15 and later
-// Exists in iOS 13.0 and later
+// 在 Mac OS X 10.15 及更高版本中存在
+// 在 iOS 13.0 及更高版本中存在
 extern bool _dyld_shared_cache_is_locally_built(void);
 
 //
-// Returns if the given app needs a closure built.
+// 如果给定的应用程序需要构建闭包，则返回真。
 //
-// Exists in Mac OS X 10.15 and later
-// Exists in iOS 13.0 and later
+// 在 Mac OS X 10.15 及更高版本中存在
+// 在 iOS 13.0 及更高版本中存在
 extern bool dyld_need_closure(const char* execPath, const char* dataContainerRootDir);
 
 
@@ -422,76 +427,76 @@ struct dyld_image_uuid_offset {
 };
 
 //
-// Given an array of addresses, returns info about each address.
-// Common usage is the array or addresses was produced by a stack backtrace.
-// For each address, returns the where that image was loaded, the offset
-// of the address in the image, and the image's uuid.  If a specified
-// address is unknown to dyld, all fields will be returned a zeros.
+// 给定一组地址，返回每个地址的相关信息。
+// 常用用法是将地址数组作为参数传递，该数组是通过栈回溯生成的。
+// 对于每个地址，返回该图像加载的位置、地址在图像中的偏移量以及图像的 UUID。
+// 如果指定的地址对 dyld 未知，则所有字段都将返回零。
 //
-// Exists in macOS 10.14 and later
-// Exists in iOS 12.0 and later
+// 在 macOS 10.14 及更高版本中存在
+// 在 iOS 12.0 及更高版本中存在
 extern void _dyld_images_for_addresses(unsigned count, const void* addresses[], struct dyld_image_uuid_offset infos[]);
 
 
 //
-// Lets you register a callback which is called each time an image is loaded and provides the mach_header*, path, and
-// whether the image may be unloaded later.  During the call to _dyld_register_for_image_loads(), the callback is called
-// once for each image currently loaded.
+// 允许您注册一个回调函数，每当有图像加载时该函数就会被调用，并提供“mach_header*”、路径以及相关数据。
+// 该图像是否可以在之后卸载。在调用 _dyld_register_for_image_loads() 函数时，会触发回调函数的执行。
+// 对于当前加载的每一张图像，都执行一次此操作。
 //
-// Exists in macOS 10.14 and later
-// Exists in iOS 12.0 and later
+// 在 macOS 10.14 及更高版本中存在
+// 在 iOS 12.0 及更高版本中存在
 extern void _dyld_register_for_image_loads(void (*func)(const struct mach_header* mh, const char* path, bool unloadable));
 
 
 
 
 //
-// Lets you register a callback which is called for bulk notifications of images loaded. During the call to
-// _dyld_register_for_bulk_image_loads(), the callback is called once with all images currently loaded.
-// Then later during dlopen() the callback is called once with all newly images.
+// 允许您注册一个回调函数，该函数会在批量处理图像加载通知时被调用。在调用该函数期间
+// "dyld_register_for_bulk_image_loads()" 函数中，回调函数会在一次性接收到所有已加载图像时被调用。
+// 随后,在调用 dlopen() 函数时,回调函数会一次性被调用一次,传入所有新的图像数据
 //
-// Exists in macOS 10.15 and later
-// Exists in iOS 13.0 and later
+// 在 macOS 10.15 及更高版本中存在
+// 在 iOS 13.0 及更高版本中存在
 extern void _dyld_register_for_bulk_image_loads(void (*func)(unsigned imageCount, const struct mach_header* mhs[], const char* paths[]));
 
 
 //
-// DriverKit main executables do not have an LC_MAIN.  Instead DriverKit.framework's initializer calls
-// _dyld_register_driverkit_main() with a function pointer that dyld should call into instead
-// of using LC_MAIN.
+// DriverKit 主程序文件中不存在 LC_MAIN 标签.相反,DriverKit.framework文件夹中的初始化器会调用
+// 将 _dyld_register_driverkit_main() 函数替换为一个函数指针,该指针由 dyld 调用,
+// 以替代使用 LC_MAIN.
 //
 extern void _dyld_register_driverkit_main(void (*mainFunc)(void));
 
 
 //
-// This is similar to _dyld_shared_cache_contains_path(), except that it returns the canonical
-// shared cache path for the given path.
+// 这与 _dyld_shared_cache_contains_path() 函数的功能类似，不同之处在于它会返回规范化的路径。
+// 如果给定的路径存在于 dyld 共享缓存中，则返回该路径的规范化版本。
+// 如果路径不存在于共享缓存中，则返回 NULL 。
 //
-// Exists in macOS 10.16 and later
-// Exists in iOS 14.0 and later
+// 在 macOS 10.16 及更高版本中存在
+// 在 iOS 14.0 及更高版本中存在
 extern const char* _dyld_shared_cache_real_path(const char* path);
 
 
 //
-// Dyld has a number of modes. This function returns the mode for the current process.
-// dyld2 is the classic "interpreter" way to run.
-// dyld3 runs by compiling down and caching what dyld needs to do into a "closure".
+// dyld 有多种模式。此函数返回当前进程的模式。
+// dyld2 是经典的“解释器”方式运行。
+// dyld3 通过将 dyld 需要执行的操作编译并缓存到“闭包”中来运行。
 //
-// Exists in macOS 10.16 and later
-// Exists in iOS 14.0 and later
+// 在 macOS 10.16 及更高版本中存在
+// 在 iOS 14.0 及更高版本中存在
 //
-#define DYLD_LAUNCH_MODE_USING_CLOSURE               0x00000001     // if 0, then running in classic dyld2 mode
-#define DYLD_LAUNCH_MODE_BUILT_CLOSURE_AT_LAUNCH     0x00000002     // launch was slow, to build closure
-#define DYLD_LAUNCH_MODE_CLOSURE_SAVED_TO_FILE       0x00000004     // next launch will be faster
-#define DYLD_LAUNCH_MODE_CLOSURE_FROM_OS             0x00000008     // closure built into dyld cache
-#define DYLD_LAUNCH_MODE_MINIMAL_CLOSURE             0x00000010     // closure does not contain fix ups
+#define DYLD_LAUNCH_MODE_USING_CLOSURE               0x00000001     // 进程正在使用闭包
+#define DYLD_LAUNCH_MODE_BUILT_CLOSURE_AT_LAUNCH     0x00000002     // 进程启动时构建闭包
+#define DYLD_LAUNCH_MODE_CLOSURE_SAVED_TO_FILE       0x00000004     // 闭包已保存到文件
+#define DYLD_LAUNCH_MODE_CLOSURE_FROM_OS             0x00000008     // 闭包已嵌入 dyld 缓存
+#define DYLD_LAUNCH_MODE_MINIMAL_CLOSURE             0x00000010     // 闭包中没有修复内容
 extern uint32_t _dyld_launch_mode(void);
 
 
-//
-// When dyld must terminate a process because of a required dependent dylib
-// could not be loaded or a symbol is missing, dyld calls abort_with_reason()
-// using one of the following error codes.
+//	
+// 当 dyld 必须因为缺少必需的依赖 dylib 而终止进程时，
+// 或者缺少符号时，dyld 会调用 abort_with_reason() 函数
+// 使用以下错误代码之一。
 //
 #define DYLD_EXIT_REASON_DYLIB_MISSING          1
 #define DYLD_EXIT_REASON_DYLIB_WRONG_ARCH       2
@@ -503,12 +508,12 @@ extern uint32_t _dyld_launch_mode(void);
 #define DYLD_EXIT_REASON_OTHER                  9
 
 //
-// When it has more information about the termination, dyld will use abort_with_payload().
-// The payload is a dyld_abort_payload structure.  The fixed fields are offsets into the
-// payload for the corresponding string.  If the offset is zero, that string is not available.
+// 当 dyld 必须因为缺少必需的依赖 dylib 而终止进程时，
+// 或者缺少符号时，dyld 会调用 abort_with_payload() 函数
+// 使用以下错误代码之一。
 //
 struct dyld_abort_payload {
-	uint32_t version;                   // first version is 1
+	uint32_t version;                   // first version is 1	
 	uint32_t flags;                     // 0x00000001 means dyld terminated at launch, backtrace not useful
 	uint32_t targetDylibPathOffset;     // offset in payload of path string to dylib that could not be loaded
 	uint32_t clientPathOffset;          // offset in payload of path string to image requesting dylib
@@ -518,30 +523,30 @@ struct dyld_abort_payload {
 typedef struct dyld_abort_payload dyld_abort_payload;
 
 
-// These global variables are implemented in libdyld.dylib
-// Old programs that used crt1.o also defined these globals.
-// The ones in dyld are not used when an old program is run.
+// 这些全局变量是在 libdyld.dylib 中实现的
+// 那些使用 crt1.o 的旧程序也会定义这些全局变量。
+// 在运行旧程序时，dyld 中的那些内容是不会被使用的。
 extern int          NXArgc;
 extern const char** NXArgv;
 extern       char** environ;       // POSIX says this not const, because it pre-dates const
 extern const char*  __progname;
 
 
-// called by libSystem_initializer only
+// 	仅由 libSystem_initializer 调用
 extern void _dyld_initializer(void);
 
-// never called from source code. Used by static linker to implement lazy binding
+// 从未在源代码中出现过。由静态链接器使用，以实现延迟绑定功能。
 extern void dyld_stub_binder(void) __asm__("dyld_stub_binder");
 
-// never call from source code.  Used by closure builder to bind missing lazy symbols to
+// 切勿在源代码中调用。此功能由闭包构建器使用，用于将缺失的延迟符号绑定到闭包中。
 extern void _dyld_missing_symbol_abort(void);
 
-// Called only by objc to see if dyld has uniqued this selector.
-// Returns the value if dyld has uniqued it, or nullptr if it has not.
-// Note, this function must be called after _dyld_objc_notify_register.
+// 	只有在被 objc 调用时才会检查 dyld 是否已为该选择器进行了唯一标识。
+// 如果 dyld 已对某个值进行了唯一化处理，则返回该值；否则返回 nullptr 。
+// Note, 此函数必须在 _dyld_objc_notify_register 之后被调用。
 //
-// Exists in Mac OS X 10.15 and later
-// Exists in iOS 13.0 and later
+// 在 Mac OS X 10.15 及更高版本中存在
+// 在 iOS 13.0 及更高版本中存在
 extern const char* _dyld_get_objc_selector(const char* selName);
 
 
@@ -552,27 +557,28 @@ extern const char* _dyld_get_objc_selector(const char* selName);
 // Note you can set stop to true to stop iterating.
 // Also note, this function must be called after _dyld_objc_notify_register.
 //
-// Exists in Mac OS X 10.15 and later
-// Exists in iOS 13.0 and later
+// 在 Mac OS X 10.15 及更高版本中存在
+// 在 iOS 13.0 及更高版本中存在
 extern void _dyld_for_each_objc_class(const char* className,
                                       void (^callback)(void* classPtr, bool isLoaded, bool* stop));
 
 
-// Called only by objc to see if dyld has pre-optimized protocols with this name.
-// The callback will be called once for each protocol with the given name where
-// isLoaded is true if that protocol is in a binary which has been previously passed
-// to the objc load notifier.
-// Note you can set stop to true to stop iterating.
-// Also note, this function must be called after _dyld_objc_notify_register.
+// 只有在被 objc 调用时才会检查 dyld 是否已对具有此名称的协议进行了预优化处理。
+// 对于具有给定名称的每个协议，回调函数都会被调用一次。
+// 如果该协议所对应的二进制文件之前已被传输过，则“isLoaded”为真。
+// 回调函数会将该协议的指针作为参数传递。
+// 如果该协议所对应的二进制文件之前未被传输过，则“isLoaded”为假。
+// 	请注意，您可以将“stop”设置为“true”以停止迭代。
+// 另外请注意，此功能必须在 _dyld_objc_notify_register 之后调用。
 //
-// Exists in Mac OS X 10.15 and later
-// Exists in iOS 13.0 and later
+// 在 Mac OS X 10.15 及更高版本中存在
+// 在 iOS 13.0 及更高版本中存在
 extern void _dyld_for_each_objc_protocol(const char* protocolName,
                                          void (^callback)(void* protocolPtr, bool isLoaded, bool* stop));
 
 
-// called by exit() before it calls cxa_finalize() so that thread_local
-// objects are destroyed before global objects.
+// 在调用exit()之前,它会先调用cxa_finalize(),以便实现线程局部性。
+// 对象的销毁会先于全局对象进行.
 extern void _tlv_exit(void);
 
 typedef enum {
@@ -588,7 +594,7 @@ typedef enum {
 extern bool _dyld_is_objc_constant(DyldObjCConstantKind kind, const void* addr);
 
 
-// temp exports to keep tapi happy, until ASan stops using dyldVersionNumber
+// 暂时将这些内容导出以让TAPI感到满意,直到ASan停止使用dyldVersionNumber为止.
 extern double      dyldVersionNumber;
 extern const char* dyldVersionString;
 

@@ -1,8 +1,8 @@
 # RootBridge
 
-An iOS developer framework for rootless tweak development. This framework makes it possible to compile "universal" (root + rootless) binaries.
+一款适用于无根修改开发的 iOS 开发框架。该框架能够编译出“通用”（包含根权限与无根权限）的二进制文件。
 
 ## Features
 
-* Detect if your code is running on a rootless platform in runtime.
-* Convert path strings to rootless paths if necessary.
+* 在运行时检测您的代码是否运行在无根权限的平台上。
+* 如有必要，将路径字符串转换为无根路径。
