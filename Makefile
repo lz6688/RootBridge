@@ -1,6 +1,10 @@
-ARCHS =  arm64 arm64e
+ifeq ($(THEOS_PACKAGE_SCHEME),rootless)
+ARCHS ?= arm64 arm64e
+TARGET ?= iphone:clang:16.5:15.0
+else
+ARCHS ?= armv7 armv7s arm64 arm64e
 TARGET ?= iphone:clang:14.5:8.0
-
+endif
 include $(THEOS)/makefiles/common.mk
 
 FRAMEWORK_NAME = RootBridge
