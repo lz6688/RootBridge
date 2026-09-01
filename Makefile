@@ -1,4 +1,4 @@
-ifeq ($(THEOS_PACKAGE_SCHEME),rootless)
+ifneq ($(filter $(THEOS_PACKAGE_SCHEME),rootless roothide),)
 ARCHS := arm64 arm64e
 TARGET := iphone:clang:16.4:15.0
 else
